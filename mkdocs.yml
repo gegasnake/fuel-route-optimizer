@@ -1,0 +1,19 @@
+site_name: project_name
+site_description: Developer and architecture documentation for the project
+site_author: Gega Tvaradze
+
+docs_dir: docs
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Architecture: architecture.md
+  - Development: development.md
+  - Testing: testing.md
+  - CI/CD: ci-cd.md
+  - API: api.md
+
+theme:
+  name: mkdocs
+
+strict: true

@@ -1,0 +1,47 @@
+requires = [
+    "tox>=4.20",
+    "tox-uv-bare",
+]
+
+env_list = [
+    "tests",
+    "lint",
+    "format",
+    "type",
+    "django",
+    "docs",
+]
+
+[env_run_base]
+runner = "uv-venv-lock-runner"
+dependency_groups = ["dev"]
+package = "skip"
+
+pass_env = [
+    "SECRET_KEY",
+    "DEBUG",
+    "DJANGO_ALLOWED_HOSTS",
+    "POSTGRES_DB",
+    "POSTGRES_USER",
+    "POSTGRES_PASSWORD",
+    "POSTGRES_HOST",
+    "POSTGRES_PORT",
+]
+
+[env.tests]
+commands = [["pytest"]]
+
+[env.lint]
+commands = [["ruff", "check", "."]]
+
+[env.format]
+commands = [["ruff", "format", "--check", "."]]
+
+[env.type]
+commands = [["mypy"]]
+
+[env.django]
+commands = [["python", "manage.py", "check"]]
+
+[env.docs]
+commands = [["mkdocs", "build", "--strict"]]

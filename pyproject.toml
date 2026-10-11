@@ -1,0 +1,62 @@
+[project]
+name = "blank"
+version = "0.1.0"
+description = "blank"
+readme = "Readme.md"
+requires-python = ">=3.13"
+
+dependencies = [
+    "django>=6.1",
+    "django-environ>=0.14.0",
+    "djangorestframework>=3.18.0",
+    "drf-spectacular>=0.30.0",
+    "psycopg[binary]>=3.3.4",
+]
+
+[dependency-groups]
+dev = [
+    "django-stubs>=6.1.0",
+    "mkdocs>=1.6.1",
+    "mypy==1.18.2",
+    "pre-commit>=4.6.1",
+    "pytest>=9.1.1",
+    "pytest-django>=4.13.0",
+    "ruff>=0.16.2",
+    "tox>=4.60.0",
+    "tox-uv-bare>=1.36.0",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+addopts = "-ra"
+
+[tool.ruff.lint.per-file-ignores]
+"config/settings/base.py" = ["F401"]
+
+
+[tool.mypy]
+python_version = "3.13"
+plugins = ["mypy_django_plugin.main"]
+files = [
+    "config",
+    "manage.py",
+]
+incremental = false
+
+check_untyped_defs = true
+disallow_untyped_defs = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+show_error_codes = true
+pretty = true
+
+
+[tool.django-stubs]
+django_settings_module = "config.settings"
+
+
+[[tool.mypy.overrides]]
+module = "environ"
+ignore_missing_imports = true

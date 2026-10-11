@@ -1,0 +1,21 @@
+# PyCharm
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*.sqlite3
+.venv/
+env/
+venv/
+
+# Django
+media/
+staticfiles/
+
+# Environment variables
+.env
+
+plan.txt
+
+site/
