@@ -1,466 +1,275 @@
-# Django Backend Template
+# Fuel Route Optimizer
 
-A reusable Django backend project template with a preconfigured development, testing, code-quality, documentation, and Continuous Integration environment.
+A Django REST API that calculates driving routes across the United States and recommends cost-effective fuel stops using a dataset of fuel station prices.
 
-The goal of this template is to provide a clean foundation for starting new Django backend projects without repeatedly configuring the same development infrastructure.
+Built as a backend engineering assignment for **Spotter**.
+
+## Features
+
+- Calculate driving routes between US locations.
+- Return route distance, estimated duration, and GeoJSON geometry.
+- Find verified fuel stations near the driving route.
+- Recommend fuel stops using a price-aware refueling algorithm.
+- Calculate gallons purchased and total additional fuel expenditure.
+- Import fuel-price records from a CSV dataset.
+- Document the API using Swagger/OpenAPI.
+- Run the application with Docker and PostgreSQL.
+- Validate functionality using automated tests.
 
 ## Tech Stack
 
 - Python 3.13
-- Django
-- Django REST Framework
-- PostgreSQL
-- Docker & Docker Compose
-- uv
-- Ruff
-- mypy
-- pytest
-- pytest-django
-- pre-commit
-- tox
-- MkDocs
-- GitHub Actions
+- Django and Django REST Framework
+- PostgreSQL 17
+- OpenRouteService for routing and geocoding
+- Docker and Docker Compose
+- uv for dependency management
+- pytest for automated testing
+- Ruff for linting and formatting
+- drf-spectacular for OpenAPI documentation
 
-## Included Features
+## How It Works
 
-### Development
+The API receives a starting location and a destination.
 
-- Dockerized Django development environment
-- PostgreSQL database
-- Environment-variable-based configuration
-- Modular Django settings
-- Dependency management with uv
-- Reproducible dependencies through `uv.lock`
+1. **Geocoding:** Resolve the starting and destination locations to geographic coordinates.
+2. **Routing:** Request a driving route from the routing provider.
+3. **Station matching:** Find verified fuel stations within a geographic corridor around the route.
+4. **Fuel optimization:** Calculate recommended refueling stops using station prices, vehicle range, and fuel consumption.
+5. **Response:** Return the driving route and fuel purchase recommendations.
 
-### Code Quality
+Station matching and fuel optimization are performed locally after retrieving the driving route, reducing the need for additional routing API calls.
 
-- Ruff linting
-- Ruff formatting
-- mypy static type checking
-- pre-commit hooks
+## Vehicle Assumptions
 
-### Testing
+| Parameter | Value |
+|---|---|
+| Maximum range | 500 miles |
+| Fuel efficiency | 10 miles per gallon |
+| Tank capacity | 50 gallons |
+| Initial fuel | Full tank |
+| Fuel prices | Provided CSV dataset |
 
-- pytest
-- pytest-django
-- Django test database support
-- tox automation
+The total fuel cost represents **additional fuel purchased during the journey**, excluding the fuel already present in the vehicle at departure.
 
-### Documentation
+## API Endpoint
 
-- MkDocs documentation
-- Architecture documentation
-- Development workflow
-- Testing documentation
-- CI/CD documentation
-- API documentation structure
+### `POST /api/v1/routes/optimize/`
 
-### Continuous Integration
+**Request**
 
-GitHub Actions automatically validates:
+```json
+{
+  "start": "New York, NY",
+  "finish": "Chicago, IL"
+}
+```
 
-- pytest tests
-- Ruff linting
-- Ruff formatting
-- mypy
-- Django system checks
-- MkDocs documentation
+**Example response (abridged)**
 
-The validation suite is executed through tox.
+```json
+{
+  "start": "New York, NY",
+  "finish": "Chicago, IL",
+  "distance_miles": 800.43,
+  "duration_minutes": 839.11,
+  "geometry": {
+    "type": "LineString",
+    "coordinates": []
+  },
+  "fuel": {
+    "total_cost": 101.78,
+    "total_gallons_purchased": 30.043,
+    "fuel_remaining_gallons": 0.0,
+    "stops": [
+      {
+        "station_id": 15842,
+        "name": "SHEETZ #769",
+        "latitude": 41.007944,
+        "longitude": -76.489601,
+        "distance_along_route": 157.3,
+        "price_per_gallon": 3.329,
+        "gallons_purchased": 15.73,
+        "fuel_cost": 52.36517
+      },
+      {
+        "station_id": 10756,
+        "name": "PILOT TRAVEL CENTERS #3",
+        "latitude": 41.1287428,
+        "longitude": -80.7693587,
+        "distance_along_route": 402.8,
+        "price_per_gallon": 3.45233333,
+        "gallons_purchased": 14.313,
+        "fuel_cost": 49.41324695229
+      }
+    ]
+  }
+}
+```
 
----
+The actual `geometry.coordinates` array contains the route's geographic points. It is omitted from this example for readability.
 
-# Getting Started
+### HTTP Responses
 
-## 1. Create a Project From the Template
+| Status | Description |
+|---|---|
+| 200 | Route successfully optimized |
+| 400 | Invalid request or unresolved location |
+| 422 | Insufficient verified fuel-station coverage |
+| 502 | Routing provider unavailable |
 
-On GitHub, click:
+## Fuel Optimization Algorithm
 
-**Use this template → Create a new repository**
+The optimizer uses a greedy price-aware refueling strategy for a fixed route.
 
-Then clone your newly created repository:
+At each potential stop, the algorithm evaluates reachable fuel stations:
+
+- If a cheaper station is reachable, purchase enough fuel to reach it.
+- Otherwise, fill the tank as needed, without purchasing more fuel than the remaining journey requires.
+- Continue until the destination is reached.
+
+The algorithm respects the vehicle's maximum 500-mile range and 10 MPG consumption rate.
+
+Its results depend on which verified stations are available along the route. It does not currently calculate actual road detours to individual fuel stations.
+
+## Getting Started
+
+### Requirements
+
+- Docker
+- Docker Compose
+- An OpenRouteService API key
+
+### 1. Clone the repository
 
 ```bash
 git clone <your-repository-url>
-cd <your-project>
+cd fuel-route-optimizer
 ```
 
-## 2. Configure Environment Variables
-
-Copy the example environment file:
+### 2. Configure environment variables
 
 ```bash
 cp .env.example .env
 ```
 
-Update the values in `.env` if necessary.
+Configure the PostgreSQL connection, Django settings, and routing provider API key using the variable names provided in `.env.example`.
 
-Example:
+Keep the real `.env` file out of version control.
 
-```env
-SECRET_KEY=change-me
-DEBUG=True
-DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
-
-POSTGRES_DB=app_db
-POSTGRES_USER=app_user
-POSTGRES_PASSWORD=change-me
-POSTGRES_HOST=db
-POSTGRES_PORT=5432
-
-WEB_PORT=8000
-```
-
-Never commit the real `.env` file.
-
-## 3. Build and Start the Project
+### 3. Start Docker
 
 ```bash
 docker compose up --build -d
 ```
 
-Check that the containers are running:
-
-```bash
-docker compose ps
-```
-
-## 4. Run Database Migrations
+### 4. Apply migrations
 
 ```bash
 docker compose exec web uv run python manage.py migrate
 ```
 
-## 5. Run Django System Checks
+### 5. Import fuel station data
+
+The provided CSV dataset contains 8,151 fuel-station records, including fuel prices and location descriptions.
+
+Import it using the project's CSV import management command.
+
+**Before submission:** Add the exact command used by this repository, including the CSV path and any required options.
+
+### 6. Prepare verified station coordinates
+
+The source dataset does not provide reliable geographic coordinates for every station.
+
+Stations must have verified coordinates before they are eligible for route matching.
+
+**Before submission:** Document how to load the verified stations used in the demonstration. A fresh database containing only the fuel-price CSV will not necessarily reproduce the New York → Chicago example.
+
+### 7. Start using the API
+
+```bash
+curl -X POST http://localhost:8000/api/v1/routes/optimize/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "start": "New York, NY",
+    "finish": "Chicago, IL"
+  }'
+```
+
+Swagger/OpenAPI documentation is available through the URLs configured in the Django project.
+
+## Testing
+
+All commands run inside Docker.
+
+**Django checks**
 
 ```bash
 docker compose exec web uv run python manage.py check
 ```
 
-The application should now be available at:
-
-```text
-http://localhost:8000
-```
-
-or the port configured through `WEB_PORT`.
-
----
-
-# Development Workflow
-
-All development commands are intended to run inside Docker.
-
-## Create a Django Application
-
-```bash
-docker compose exec web uv run python manage.py startapp <app_name>
-```
-
-Remember to register the new application in the Django settings when required.
-
-## Create Migrations
-
-```bash
-docker compose exec web uv run python manage.py makemigrations
-```
-
-## Apply Migrations
-
-```bash
-docker compose exec web uv run python manage.py migrate
-```
-
-## Create a Superuser
-
-```bash
-docker compose exec web uv run python manage.py createsuperuser
-```
-
-## Django Shell
-
-```bash
-docker compose exec web uv run python manage.py shell
-```
-
----
-
-# Testing
-
-Run pytest:
+**Automated tests**
 
 ```bash
 docker compose exec web uv run pytest
 ```
 
-Run the complete validation suite:
-
-```bash
-docker compose exec web uv run tox
-```
-
-Individual tox environments can also be executed separately.
-
-Tests:
-
-```bash
-docker compose exec web uv run tox run -e tests
-```
-
-Linting:
-
-```bash
-docker compose exec web uv run tox run -e lint
-```
-
-Formatting validation:
-
-```bash
-docker compose exec web uv run tox run -e format
-```
-
-Static type checking:
-
-```bash
-docker compose exec web uv run tox run -e type
-```
-
-Django system checks:
-
-```bash
-docker compose exec web uv run tox run -e django
-```
-
-Documentation validation:
-
-```bash
-docker compose exec web uv run tox run -e docs
-```
-
----
-
-# Code Quality
-
-## Ruff
-
-Check the project:
+**Ruff linting**
 
 ```bash
 docker compose exec web uv run ruff check .
 ```
 
-Automatically fix supported lint violations:
-
-```bash
-docker compose exec web uv run ruff check . --fix
-```
-
-Format the project:
-
-```bash
-docker compose exec web uv run ruff format .
-```
-
-Check formatting without modifying files:
+**Ruff formatting validation**
 
 ```bash
 docker compose exec web uv run ruff format --check .
 ```
 
-## mypy
-
-Run static type checking:
+**OpenAPI validation**
 
 ```bash
-docker compose exec web uv run mypy
+docker compose exec web uv run python manage.py spectacular --validate
 ```
 
----
+## Architecture
 
-# Pre-commit
+The application separates responsibilities into dedicated services:
 
-Pre-commit automatically runs repository hygiene and code-quality checks before commits.
+| Component | Responsibility |
+|---|---|
+| RoutePlanner | Orchestrates the optimization process |
+| GeocodingService | Resolves location descriptions into coordinates |
+| RoutingService | Retrieves driving route information |
+| StationMatcher | Matches verified stations to route geometry |
+| FuelOptimizer | Calculates refueling stops and costs |
 
-Run all hooks manually:
+This separation allows routing, station matching, and fuel optimization to be tested independently.
 
-```bash
-docker compose exec web uv run pre-commit run --all-files
-```
+## Limitations
 
-The configured hooks include:
+- Fuel optimization assumes a full starting tank.
+- Fuel prices are based on the supplied dataset and are not real-time prices.
+- Geographic distance from a station to the route does not necessarily equal the actual driving detour.
+- Station coverage depends on available verified coordinates.
+- Some US routes may return HTTP 422 until additional station locations are verified.
+- The optimizer minimizes fuel purchase cost among available matched stations under its fixed-route assumptions, not necessarily across every possible driving route.
 
-- Ruff lint
-- Ruff formatting
-- Trailing whitespace validation
-- End-of-file fixing
-- YAML validation
-- TOML validation
-- Large file detection
+## Future Improvements
 
----
+- Expand verified fuel-station coverage nationwide.
+- Automate reliable coordinate verification.
+- Account for real driving detours and station access.
+- Support configurable vehicle range, MPG, and initial fuel.
+- Optimize multiple alternative driving routes.
+- Add persistent route caching to reduce repeated provider requests.
 
-# Documentation
+## Demonstration
 
-Documentation is built using MkDocs.
+A short Loom walkthrough demonstrates the API request, route optimization result, code architecture, and automated tests.
 
-Build documentation:
+**Demo link:** Add Loom URL here.
 
-```bash
-docker compose exec web uv run mkdocs build --strict
-```
+## License
 
-Serve documentation:
-
-```bash
-docker compose exec web uv run mkdocs serve -a 0.0.0.0:8001
-```
-
-Documentation source files are located in:
-
-```text
-docs/
-```
-
-Generated MkDocs output is written to:
-
-```text
-site/
-```
-
-The `site/` directory is generated and should not be committed.
-
----
-
-# Continuous Integration
-
-The project contains a GitHub Actions CI workflow under:
-
-```text
-.github/workflows/ci.yml
-```
-
-CI runs automatically on configured pushes and pull requests.
-
-The pipeline:
-
-```text
-Push / Pull Request
-        │
-        ▼
-   GitHub Actions
-        │
-        ▼
-  Python 3.13 + uv
-        │
-        ▼
-       tox
-        │
-   ┌────┼────┬─────┬──────┬──────┐
-   ▼    ▼    ▼     ▼      ▼      ▼
-pytest Ruff Format mypy Django  MkDocs
-   │    │    │     │      │      │
-   └────┴────┴─────┴──────┴──────┘
-        │
-        ▼
-     CI Passed
-```
-
-Any failed validation causes the CI workflow to fail.
-
----
-
-# Project Structure
-
-```text
-.
-├── .github/
-│   └── workflows/
-│       └── ci.yml
-│
-├── config/
-│   ├── settings/
-│   ├── urls.py
-│   ├── asgi.py
-│   └── wsgi.py
-│
-├── docs/
-│   ├── index.md
-│   ├── getting-started.md
-│   ├── architecture.md
-│   ├── development.md
-│   ├── testing.md
-│   ├── ci-cd.md
-│   └── api.md
-│
-├── tests/
-├── .env.example
-├── .gitignore
-├── .pre-commit-config.yaml
-├── docker-compose.yml
-├── Dockerfile
-├── manage.py
-├── mkdocs.yml
-├── pyproject.toml
-├── tox.toml
-├── uv.lock
-└── README.md
-```
-
----
-
-# After Creating a Project From This Template
-
-After generating a new repository from this template:
-
-1. Update the project name and metadata in `pyproject.toml`.
-2. Update the project title and description in `README.md`.
-3. Update the project information in `mkdocs.yml`.
-4. Update the documentation under `docs/`.
-5. Copy `.env.example` to `.env`.
-6. Configure project-specific environment variables.
-7. Build the Docker environment.
-8. Run database migrations.
-9. Run the complete tox validation suite.
-10. Start creating project-specific Django applications.
-
-Verify the project before beginning development:
-
-```bash
-docker compose exec web uv run tox
-```
-
-All validation environments should pass.
-
----
-
-# Dependency Management
-
-Dependencies are managed using uv.
-
-Synchronize dependencies:
-
-```bash
-docker compose exec web uv sync
-```
-
-Add a runtime dependency:
-
-```bash
-docker compose exec web uv add <package>
-```
-
-Add a development dependency:
-
-```bash
-docker compose exec web uv add --dev <package>
-```
-
-The `uv.lock` file should be committed to Git to provide reproducible dependency installation.
-
----
-
-# Philosophy
-
-This template provides an opinionated development infrastructure while keeping application business logic minimal.
-
-The template defines **how the project is developed, tested, validated, documented, and integrated**, while individual projects define their own applications, models, APIs, and business rules.
+Add the applicable license information if the project is being distributed under a license.
