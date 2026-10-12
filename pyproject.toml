@@ -34,7 +34,8 @@ addopts = "-ra"
 
 [tool.ruff.lint.per-file-ignores]
 "config/settings/base.py" = ["F401"]
-
+"**/models.py" = ["RUF012"]
+"**/migrations/*.py" = ["RUF012"]
 
 [tool.mypy]
 python_version = "3.13"
