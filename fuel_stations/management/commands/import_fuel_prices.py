@@ -8,8 +8,20 @@ from django.db import transaction
 from fuel_stations.models import FuelStation
 
 
+def station_identity(station: FuelStation) -> tuple:
+    """Return fields that uniquely describe a source station record."""
+    return (
+        station.opis_id,
+        station.name,
+        station.address,
+        station.city,
+        station.state,
+        station.rack_id,
+    )
+
+
 class Command(BaseCommand):
-    help = "Import the fuel-station prices CSV into PostgreSQL."
+    help = "Import fuel prices while preserving existing station coordinates."
 
     REQUIRED_COLUMNS = frozenset(
         {
@@ -46,12 +58,14 @@ class Command(BaseCommand):
                 reader = csv.DictReader(file)
 
                 missing = self.REQUIRED_COLUMNS - set(reader.fieldnames or [])
+
                 if missing:
                     raise CommandError(f"Missing CSV columns: {sorted(missing)}")
 
                 for line_number, row in enumerate(reader, start=2):
                     try:
                         station = FuelStation(
+                            source_row_number=line_number,
                             opis_id=int(row["OPIS Truckstop ID"]),
                             name=row["Truckstop Name"].strip(),
                             address=row["Address"].strip(),
@@ -60,6 +74,7 @@ class Command(BaseCommand):
                             rack_id=int(row["Rack ID"]),
                             retail_price=Decimal(row["Retail Price"]),
                         )
+
                     except (
                         ValueError,
                         TypeError,
@@ -71,19 +86,55 @@ class Command(BaseCommand):
                             f"Invalid data at CSV line {line_number}: {exc}"
                         ) from exc
 
+                    # Important: append INSIDE the loop.
                     stations.append(station)
 
         except (OSError, UnicodeError, csv.Error) as exc:
             raise CommandError(f"Failed to read CSV: {exc}") from exc
 
-        # Atomic full refresh of the original source data.
+        # Preserve coordinates and geocoding statuses.
+
+        # Validate station identities before updating existing records.
         with transaction.atomic():
-            FuelStation.objects.all().delete()
+            existing = FuelStation.objects.filter(
+                source_row_number__in=[
+                    station.source_row_number for station in stations
+                ]
+            )
+
+            existing_by_row = {
+                station.source_row_number: station for station in existing
+            }
+
+            for station in stations:
+                previous = existing_by_row.get(station.source_row_number)
+
+                if previous is None:
+                    continue
+
+                if station_identity(previous) != station_identity(station):
+                    raise CommandError(
+                        "Station identity changed at CSV row "
+                        f"{station.source_row_number}. "
+                        "Import aborted to protect geocoded coordinates."
+                    )
+
             FuelStation.objects.bulk_create(
                 stations,
                 batch_size=1000,
+                update_conflicts=True,
+                unique_fields=["source_row_number"],
+                update_fields=[
+                    "opis_id",
+                    "name",
+                    "address",
+                    "city",
+                    "state",
+                    "rack_id",
+                    "retail_price",
+                ],
             )
 
         self.stdout.write(
-            self.style.SUCCESS(f"Successfully imported {len(stations)} fuel stations.")
+            self.style.SUCCESS(f"Successfully processed {len(stations)} fuel stations.")
         )

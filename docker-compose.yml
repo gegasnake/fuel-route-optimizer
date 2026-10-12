@@ -43,6 +43,9 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
 
+      ROUTING_API_KEY: ${ROUTING_API_KEY}
+      ROUTING_API_URL: ${ROUTING_API_URL}
+
     depends_on:
       db:
         condition: service_healthy
