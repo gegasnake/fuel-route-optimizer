@@ -21,11 +21,14 @@ pass_env = [
     "SECRET_KEY",
     "DEBUG",
     "DJANGO_ALLOWED_HOSTS",
+    "DATABASE_URL",
     "POSTGRES_DB",
     "POSTGRES_USER",
     "POSTGRES_PASSWORD",
     "POSTGRES_HOST",
     "POSTGRES_PORT",
+    "ROUTING_API_KEY",
+    "ROUTING_API_URL",
 ]
 
 [env.tests]
@@ -41,7 +44,9 @@ commands = [["ruff", "format", "--check", "."]]
 commands = [["mypy"]]
 
 [env.django]
-commands = [["python", "manage.py", "check"]]
+commands = [
+    ["python", "manage.py", "check"],
+]
 
 [env.docs]
 commands = [["mkdocs", "build", "--strict"]]

@@ -1,15 +1,16 @@
 [project]
-name = "blank"
+name = "fuel-route-optimizer"
 version = "0.1.0"
-description = "blank"
-readme = "Readme.md"
+description = "Django REST API for cost-effective fuel stop optimization along US routes."
 requires-python = ">=3.13"
+readme = "Readme.md"
 
 dependencies = [
     "django>=6.1",
     "django-environ>=0.14.0",
     "djangorestframework>=3.18.0",
     "drf-spectacular>=0.30.0",
+    "httpx>=0.28.1",
     "psycopg[binary]>=3.3.4",
 ]
 
